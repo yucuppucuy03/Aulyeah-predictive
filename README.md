@@ -59,12 +59,15 @@ input:checked + .slider:before{transform:translateX(16px);background:var(--accen
 .fb.on{border-color:var(--accent);color:var(--accent);background:rgba(0,212,255,0.05)}
 
 .tw{overflow-x:auto;padding:0 10px 40px}
-table{width:100%;border-collapse:collapse;margin-top:14px;font-size:11px}
+
+/* KUNCI WARNA GELAP UNTUK TABEL */
+table{width:100%;border-collapse:collapse;margin-top:14px;font-size:11px; background:var(--bg); color:var(--text);}
 thead th{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--accent);padding:8px 5px;background:#050a12;border-bottom:1px solid var(--accent);border-right:1px solid rgba(14,32,64,.4)}
 thead tr:nth-child(2) th{font-size:9px;color:var(--dim);background:#070d18;border-bottom:2px solid var(--border)}
-tbody tr{border-bottom:1px solid rgba(14,32,64,.4)}
-tbody tr:hover{background:rgba(0,212,255,0.03)}
-td{padding:10px 5px;text-align:center;white-space:nowrap;border-right:1px solid rgba(14,32,64,.2)}
+tbody tr{border-bottom:1px solid rgba(14,32,64,.4); background:var(--bg);}
+tbody tr:nth-child(even){background:var(--panel);} /* Efek Zebra */
+tbody tr:hover{background:rgba(0,212,255,0.08)}
+td{padding:10px 5px;text-align:center;white-space:nowrap;border-right:1px solid rgba(14,32,64,.2); color:var(--text);}
 .ts2{font-family:'Share Tech Mono',monospace;color:var(--accent);font-weight:700;text-align:left;padding-left:10px}
 .vps{color:#00ff88}.vns{color:#ff3b5c}.vz{color:var(--dim)}
 .bdg{padding:3px 6px;border-radius:3px;display:inline-block;font-weight:700;font-size:9px;white-space:nowrap}
@@ -129,7 +132,6 @@ td{padding:10px 5px;text-align:center;white-space:nowrap;border-right:1px solid 
 
 <script>
 const BASE = "https://fapi.binance.com";
-// Menggunakan proxy yang paling jarang error
 const PROXIES = [
   "https://api.codetabs.com/v1/proxy?quest=",
   "https://api.allorigins.win/raw?url=",
@@ -139,16 +141,14 @@ const PROXIES = [
 let allRows = [];
 let isScanning = false;
 let refreshTimer = null;
-let timeRemaining = 900; // 15 Menit
+let timeRemaining = 900; 
 
 async function fetchJSON(url) {
-  // Coba jalur tanpa proxy dulu (terkadang Binance buka akses)
   try {
     let r = await fetch(url, { signal: AbortSignal.timeout(5000) });
     if(r.ok) return await r.json();
   } catch(e) {}
 
-  // Jika gagal, gunakan proxy secara berurutan
   for (let proxy of PROXIES) {
     try {
       let r = await fetch(proxy + encodeURIComponent(url), { signal: AbortSignal.timeout(10000) });
@@ -158,7 +158,7 @@ async function fetchJSON(url) {
       }
     } catch (e) { console.warn("Proxy gagal, ganti jalur..."); }
   }
-  throw new Error("Gagal koneksi API. Periksa internet atau matikan VPN.");
+  throw new Error("Gagal koneksi API. Periksa internet.");
 }
 
 function toggleAutoRefresh() {
@@ -180,7 +180,6 @@ function tick() {
   if (timeRemaining <= 0) { timeRemaining = 900; startScan(); }
 }
 
-// === LOGIKA MATEMATIKA INDIKATOR ===
 function ema(arr,p){
   let k=2/(p+1), out=arr.map(()=>NaN), start=arr.findIndex(v=>!isNaN(v));
   if(start===-1) return out; out[start]=arr[start];
@@ -224,11 +223,10 @@ function getSignal(v,t,d,s){
 async function startScan(){
   if(isScanning) return; 
   
-  // Deteksi Timeframe yang dicentang dengan aman
   let tfs = [];
   document.querySelectorAll('input[id^="tf-"]:checked').forEach(cb => tfs.push(cb.value));
   
-  if(tfs.length === 0){ alert("Harap centang minimal 1 timeframe (15m, 1h, atau 4h)!"); return; }
+  if(tfs.length === 0){ alert("Harap centang minimal 1 timeframe!"); return; }
   
   isScanning=true;
   let topN=document.getElementById('top-n').value;
@@ -238,20 +236,19 @@ async function startScan(){
   dot.className='dot on'; document.getElementById('pw').style.display='block';
 
   try{
-    stxt.textContent="Menyambungkan ke Binance API...";
+    stxt.textContent="Menyambungkan...";
     let data = await fetchJSON(BASE + "/fapi/v1/ticker/24hr");
     
-    // Validasi super ketat untuk menghindari Error data.filter
     if (!Array.isArray(data)) {
       if (data && Array.isArray(data.data)) data = data.data; 
-      else throw new Error("Format data ditolak oleh Proxy. Silakan klik SCAN lagi.");
+      else throw new Error("Format data ditolak Proxy.");
     }
     
     let symbols = data.filter(d=> d.symbol && d.symbol.endsWith("USDT"))
                       .sort((a,b)=> parseFloat(b.quoteVolume) - parseFloat(a.quoteVolume))
                       .slice(0,topN);
                       
-    if(symbols.length === 0) throw new Error("Tidak ada koin USDT yang ditemukan.");
+    if(symbols.length === 0) throw new Error("Tidak ada koin USDT.");
 
     document.getElementById('coin-count').textContent=symbols.length;
 
@@ -278,7 +275,7 @@ async function startScan(){
           row.tfs[tf]={v,t,d,st,sig:res.sig};
           scores.push(res.score);
         }catch(e){ row.tfs[tf]={sig:"ERR"}; scores.push(0); }
-        await new Promise(r=>setTimeout(r,50)); // Jeda anti-banned
+        await new Promise(r=>setTimeout(r,50)); 
       }
       let avg = scores.reduce((a,b)=>a+b,0);
       row.overall = avg>=3?"STRONG BUY":avg>=1?"BUY":avg<=-3?"STRONG SELL":avg<=-1?"SELL":"MIXED";
@@ -296,7 +293,6 @@ async function startScan(){
   }catch(e){ 
     dot.className='dot er'; 
     stxt.textContent="Gagal: "+e.message; 
-    console.error(e);
   }
   
   isScanning=false; document.getElementById('scan-btn').disabled=false;
@@ -324,10 +320,11 @@ function renderRow(r, idx, tfs){
     let d=r.tfs[tf];
     if(!d || d.sig==="ERR") h+=`<td colspan="5" style="color:var(--red)">DATA ERROR</td>`;
     else {
-      h+=`<td class="${d.v>0?'vps':'vns'}">${d.v.toFixed(0)}</td>`;
-      h+=`<td class="${d.t>0?'vps':'vns'}">${d.t.toFixed(0)}</td>`;
-      h+=`<td class="${d.d>0?'vps':'vns'}">${d.d.toFixed(0)}</td>`;
-      h+=`<td class="${d.st>0?'vps':'vns'}">${d.st.toFixed(0)}</td>`;
+      const f = (val) => isNaN(val) ? '<span style="color:var(--muted)">—</span>' : val.toFixed(0);
+      h+=`<td class="${d.v>0?'vps':'vns'}">${f(d.v)}</td>`;
+      h+=`<td class="${d.t>0?'vps':'vns'}">${f(d.t)}</td>`;
+      h+=`<td class="${d.d>0?'vps':'vns'}">${f(d.d)}</td>`;
+      h+=`<td class="${d.st>0?'vps':'vns'}">${f(d.st)}</td>`;
       h+=`<td><span class="bdg ${d.sig.includes('BUY')?'bsb':d.sig.includes('SELL')?'bss':'bn'}">${d.sig}</span></td>`;
     }
   });
